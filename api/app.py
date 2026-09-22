@@ -1,8 +1,21 @@
-﻿import os
+import os
 import json
 import boto3
 import time
+from decimal import Decimal
 from botocore.exceptions import ClientError
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            if obj % 1 == 0:
+                return int(obj)
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+def dumps(obj):
+    return json.dumps(obj, cls=DecimalEncoder)
+
 
 dynamodb = boto3.resource('dynamodb')
 codebuild = boto3.client('codebuild')
@@ -27,13 +40,13 @@ def get_instance_id(site_id):
 
 def get_sites(event):
     response = table.scan()
-    return {'statusCode': 200, 'body': json.dumps(response.get('Items', []))}
+    return {'statusCode': 200, 'body': dumps(response.get('Items', []))}
 
 def get_site(event, site_id):
     response = table.get_item(Key={'site_id': site_id})
     if 'Item' in response:
-        return {'statusCode': 200, 'body': json.dumps(response['Item'])}
-    return {'statusCode': 404, 'body': json.dumps({'error': 'Site not found'})}
+        return {'statusCode': 200, 'body': dumps(response['Item'])}
+    return {'statusCode': 404, 'body': dumps({'error': 'Site not found'})}
 
 def create_site(event):
     body = json.loads(event.get('body', '{}'))
@@ -42,11 +55,11 @@ def create_site(event):
     instance_size = body.get('instance_size', 't3.micro')
     
     if not site_id or not domain:
-        return {'statusCode': 400, 'body': json.dumps({'error': 'Missing site_id or domain'})}
+        return {'statusCode': 400, 'body': dumps({'error': 'Missing site_id or domain'})}
         
     response = table.get_item(Key={'site_id': site_id})
     if 'Item' in response:
-        return {'statusCode': 400, 'body': json.dumps({'error': 'Site already exists'})}
+        return {'statusCode': 400, 'body': dumps({'error': 'Site already exists'})}
         
     item = {
         'site_id': site_id,
@@ -75,14 +88,14 @@ def create_site(event):
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={':val': 'FAILED_TO_START'}
         )
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}
         
-    return {'statusCode': 202, 'body': json.dumps(item)}
+    return {'statusCode': 202, 'body': dumps(item)}
 
 def delete_site(event, site_id):
     response = table.get_item(Key={'site_id': site_id})
     if 'Item' not in response:
-        return {'statusCode': 404, 'body': json.dumps({'error': 'Site not found'})}
+        return {'statusCode': 404, 'body': dumps({'error': 'Site not found'})}
         
     item = response['Item']
     
@@ -111,19 +124,19 @@ def delete_site(event, site_id):
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={':val': 'FAILED'}
         )
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}
         
-    return {'statusCode': 202, 'body': json.dumps({'message': 'Destroy initiated'})}
+    return {'statusCode': 202, 'body': dumps({'message': 'Destroy initiated'})}
 
 def reboot_site(event, site_id):
     inst_id = get_instance_id(site_id)
     if not inst_id:
-        return {'statusCode': 404, 'body': json.dumps({'error': 'Instance not found'})}
+        return {'statusCode': 404, 'body': dumps({'error': 'Instance not found'})}
     try:
         ec2.reboot_instances(InstanceIds=[inst_id])
-        return {'statusCode': 200, 'body': json.dumps({'message': 'Reboot initiated', 'instance_id': inst_id})}
+        return {'statusCode': 200, 'body': dumps({'message': 'Reboot initiated', 'instance_id': inst_id})}
     except ClientError as e:
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}
 
 def get_site_logs(event, site_id):
     inst_id = get_instance_id(site_id)
@@ -154,17 +167,17 @@ def get_site_logs(event, site_id):
             result = ssm.get_command_invocation(CommandId=command_id, InstanceId=inst_id)
             retries -= 1
             
-        return {'statusCode': 200, 'body': json.dumps({
+        return {'statusCode': 200, 'body': dumps({
             'status': result['Status'],
             'logs': result.get('StandardOutputContent', '') + result.get('StandardErrorContent', '')
         })}
     except ClientError as e:
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}
 
 def backup_site(event, site_id):
     inst_id = get_instance_id(site_id)
     if not inst_id:
-        return {'statusCode': 404, 'body': json.dumps({'error': 'Instance not found'})}
+        return {'statusCode': 404, 'body': dumps({'error': 'Instance not found'})}
         
     timestamp = str(int(time.time()))
     ami_name = f'cloudpress-backup-{site_id}-{timestamp}'
@@ -189,11 +202,11 @@ def backup_site(event, site_id):
     except ClientError as e:
         res['db_error'] = str(e)
         
-    return {'statusCode': 202, 'body': json.dumps(res)}
+    return {'statusCode': 202, 'body': dumps(res)}
 
 def handler(event, context):
     try:
-        print("Received event:", json.dumps(event))
+        print("Received event:", dumps(event))
         route_key = event.get('routeKey')
         if not route_key:
             http_method = event.get('httpMethod', '')
@@ -221,7 +234,7 @@ def handler(event, context):
         elif route_key == 'POST /sites/{site_id}/backup':
             return backup_site(event, site_id)
         else:
-            return {'statusCode': 404, 'body': json.dumps({'error': f"Route {route_key} not found"})}
+            return {'statusCode': 404, 'body': dumps({'error': f"Route {route_key} not found"})}
             
     except Exception as e:
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}

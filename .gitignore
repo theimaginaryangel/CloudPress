@@ -15,3 +15,6 @@ cleanup*.py
 loop_cleanup.py
 get_logs*.py
 print_logs.py
+.next/
+*.zip
+
