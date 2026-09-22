@@ -1,0 +1,26 @@
+server {
+    listen 80;
+    server_name {{ domain }};
+
+    root /var/www/{{ domain }};
+    index index.php index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock; # Adjust PHP version as needed (Ubuntu 22.04 default is 8.1)
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Optional: Basic cache configuration for static files
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires max;
+        log_not_found off;
+    }
+}

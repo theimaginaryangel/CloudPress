@@ -1,0 +1,97 @@
+---
+- name: Install required packages (Nginx, PHP, MySQL client, AWS CLI, unzip)
+  apt:
+    name:
+      - nginx
+      - php-fpm
+      - php-mysql
+      - php-curl
+      - php-gd
+      - php-intl
+      - php-mbstring
+      - php-soap
+      - php-xml
+      - php-xmlrpc
+      - php-zip
+      - mysql-client
+      - awscli
+      - unzip
+    state: present
+
+- name: Fetch DB credentials from Secrets Manager
+  command: >
+    aws secretsmanager get-secret-value
+    --secret-id "cloudpress/db/{{ site_id }}"
+    --region "{{ aws_region }}"
+    --query "SecretString"
+    --output text
+  register: secrets_manager_output
+  no_log: true
+
+- name: Parse JSON credentials
+  set_fact:
+    db_credentials: "{{ secrets_manager_output.stdout | from_json }}"
+  no_log: true
+
+- name: Download WP-CLI
+  get_url:
+    url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    dest: /usr/local/bin/wp
+    mode: '0755'
+
+- name: Download WordPress
+  get_url:
+    url: https://wordpress.org/latest.tar.gz
+    dest: /tmp/wordpress.tar.gz
+
+- name: Extract WordPress
+  unarchive:
+    src: /tmp/wordpress.tar.gz
+    dest: /var/www/
+    remote_src: yes
+    creates: /var/www/wordpress
+
+- name: Rename wordpress directory to site domain
+  command: mv /var/www/wordpress /var/www/{{ domain }}
+  args:
+    creates: /var/www/{{ domain }}
+
+- name: Set permissions for WordPress directory
+  file:
+    path: /var/www/{{ domain }}
+    state: directory
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: Generate WordPress Salts
+  uri:
+    url: https://api.wordpress.org/secret-key/1.1/salt/
+    return_content: yes
+  register: wp_salts
+
+- name: Configure wp-config.php
+  template:
+    src: wp-config.php.j2
+    dest: /var/www/{{ domain }}/wp-config.php
+    owner: www-data
+    group: www-data
+    mode: '0640'
+
+- name: Configure Nginx site
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/{{ domain }}
+
+- name: Enable Nginx site
+  file:
+    src: /etc/nginx/sites-available/{{ domain }}
+    dest: /etc/nginx/sites-enabled/{{ domain }}
+    state: link
+  notify: Restart Nginx
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart Nginx

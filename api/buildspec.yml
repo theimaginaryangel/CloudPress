@@ -1,0 +1,83 @@
+version: 0.2
+
+env:
+  variables:
+    TF_VERSION: "1.5.7"
+
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      - apt-get update -y
+      - apt-get install -y unzip wget curl
+      - wget https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+      - unzip terraform_${TF_VERSION}_linux_amd64.zip -d /tmp/
+      - mv /tmp/terraform /usr/local/bin/
+      - rm terraform_${TF_VERSION}_linux_amd64.zip
+      - curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+      - dpkg -i session-manager-plugin.deb
+      - rm session-manager-plugin.deb
+      - pip3 install ansible-core boto3
+  
+  pre_build:
+    commands:
+      - echo "Checking environment..."
+      - terraform version
+      - if [ -z "$SITE_ID" ]; then echo "Missing SITE_ID"; exit 1; fi
+
+  build:
+    commands:
+      - echo "Starting ACTION=$ACTION for site $SITE_ID..."
+      - cd terraform/environments/dev
+      - terraform init -backend-config="bucket=$STATE_BUCKET" -backend-config="key=$SITE_ID/terraform.tfstate" -backend-config="region=us-east-1"
+      - terraform workspace select $SITE_ID || terraform workspace new $SITE_ID
+      
+      - |
+        set -e
+        if [ "$ACTION" = "DESTROY" ]; then
+          echo "Destroying infrastructure..."
+          terraform destroy -auto-approve -var="site_id=$SITE_ID" -var="domain=$DOMAIN" -var="instance_size=$INSTANCE_SIZE"
+        else
+          echo "Provisioning infrastructure..."
+          terraform apply -auto-approve -var="site_id=$SITE_ID" -var="domain=$DOMAIN" -var="instance_size=$INSTANCE_SIZE"
+          
+          export EC2_PRIVATE_KEY=$(terraform output -raw ec2_private_key | tr -d '\r')
+          export RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          export EC2_INSTANCE_ID=$(terraform output -raw ec2_instance_id)
+          cd ../../../
+          
+          mkdir -p ~/.ssh
+          echo "$EC2_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          cd ansible
+          export ANSIBLE_CONFIG=./ansible.cfg
+          echo "Running ansible on $EC2_INSTANCE_ID"
+          ansible-playbook -i "$EC2_INSTANCE_ID," -u ubuntu playbook.yml --private-key ~/.ssh/id_rsa -e "site_id=$SITE_ID domain=$DOMAIN db_host=$RDS_ENDPOINT aws_region=$AWS_REGION"
+        fi
+      
+  post_build:
+    commands:
+      - echo "Deployment/Destroy completed."
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING -eq 1 ]; then
+          if [ "$ACTION" = "DESTROY" ]; then
+            aws dynamodb delete-item \
+              --table-name cloudpress-sites \
+              --key "{\"site_id\": {\"S\": \"$SITE_ID\"}}"
+          else
+            aws dynamodb update-item \
+              --table-name cloudpress-sites \
+              --key "{\"site_id\": {\"S\": \"$SITE_ID\"}}" \
+              --update-expression "SET #status = :val" \
+              --expression-attribute-names "{\"#status\": \"status\"}" \
+              --expression-attribute-values "{\":val\": {\"S\": \"AVAILABLE\"}}"
+          fi
+        else
+          aws dynamodb update-item \
+            --table-name cloudpress-sites \
+            --key "{\"site_id\": {\"S\": \"$SITE_ID\"}}" \
+            --update-expression "SET #status = :val" \
+            --expression-attribute-names "{\"#status\": \"status\"}" \
+            --expression-attribute-values "{\":val\": {\"S\": \"FAILED\"}}"
+        fi

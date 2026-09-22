@@ -1,0 +1,17 @@
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+__pycache__/
+*.pyc
+.env
+.venv
+venv/
+node_modules/
+.DS_Store
+cb_*_logs.txt
+verify_phase*.py
+cleanup*.py
+loop_cleanup.py
+get_logs*.py
+print_logs.py

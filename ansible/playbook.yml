@@ -1,0 +1,14 @@
+---
+- name: Provision WordPress and Harden OS
+  hosts: all
+  become: yes
+  vars:
+    # Passed in via extra-vars during execution
+    site_id: "{{ site_id }}"
+    domain: "{{ domain }}"
+    aws_region: "{{ aws_region | default('us-east-1') }}"
+    db_host: "{{ db_host }}"
+
+  roles:
+    - hardening
+    - wordpress

@@ -1,0 +1,1 @@
+ssh -i /root/.ssh/id_rsa -o ProxyCommand='aws ssm start-session --region us-east-1 --target i-028d689fb138110fb --document-name AWS-StartSSHSession --parameters portNumber=%p' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@i-028d689fb138110fb "sudo sed -i 's/Benny/ip-10-0-101-150/g' /etc/hosts"
