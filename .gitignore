@@ -17,5 +17,7 @@ get_logs*.py
 print_logs.py
 .next/
 *.zip
+*.pem
+*.key
 docs/cloudpress-complete-guide.md
 
