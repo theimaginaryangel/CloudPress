@@ -154,10 +154,10 @@ This table is a quick-reference index only. `CONTEXT.md` (Section 0.5) is the au
 
 | Phase | Status | Audit run? | Doc file exists? |
 |---|---|---|---|
-| 1 — Terraform single-site module | Not started | | |
-| 2 — Ansible WordPress playbook | Not started | | |
-| 3 — Deployment orchestration API | Not started | | |
-| 4 — Site action endpoints | Not started | | |
-| 5 — Continuous monitoring | Not started | | |
-| 6 — Control Center frontend | Not started | | |
-| 7 — Multi-site proof + final docs | Not started | | |
+| 1 — Terraform single-site module | Complete | Yes | Yes (`docs/phase-1-infrastructure.md`) |
+| 2 — Ansible WordPress playbook | Complete | Yes | Yes (`docs/phase-2-ansible.md`) |
+| 3 — Deployment orchestration API | Complete | Yes | Yes (`docs/phase-3-orchestration.md`) |
+| 4 — Site action endpoints | Complete | Yes | Yes (`docs/phase-4-actions.md`) |
+| 5 — Continuous monitoring | Complete | Yes | Yes (`docs/phase-5-monitoring.md`) |
+| 6 — Control Center frontend | Complete | Yes | Yes (`docs/phase-6-frontend.md`) |
+| 7 — Multi-site proof + final docs | Complete | Yes | Yes (`docs/architecture-and-decisions.md`) |

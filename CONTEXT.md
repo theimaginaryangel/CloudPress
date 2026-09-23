@@ -1,32 +1,36 @@
 ﻿# CloudPress - Build Context
 
-Last updated: 2026-09-22T22:15:00Z by Antigravity (Gemini 3.1 Pro)
+Last updated: 2026-09-23T08:35:00Z by Antigravity
 
 ## Where this stands right now
-Phase 5 is complete. We have successfully built the continuous monitoring system, resolved the CodeBuild tagging permission issues, cleaned up orphaned VPCs (resolving the VPC Limit Exceeded error), and completely verified an end-to-end provisioning of `test-site-api-12` and its health metrics generation. Phase 6 (Control Center Frontend) is ready to begin.
+All phases (Phase 0.5 through Phase 7) are complete and verified. CloudPress is fully built, documented, and operational with live sites provisioned in AWS.
 
 ## Completed
 - Phase 0.5 - The Context File: Initialized /CONTEXT.md and saved the master prompt.
-- Phase 1 - Terraform: Single-Site Infrastructure Module: Done, verified.
-- Phase 2 - Ansible: WordPress Provisioning Playbook: Done. Created /ansible roles (hardening, wordpress).
-- Phase 3 - Deployment Orchestration API: Done. Built the API Gateway and Lambda orchestration layer.
-- Phase 4 - Site Action Endpoints: Done. Built the site action endpoints.
-- Phase 5 - Continuous Monitoring: Done, verified. Wrote `monitor.py` which runs via EventBridge, invokes SSM Run Command for WP-CLI metrics, checks CloudWatch for CloudFront 5xx errors, and updates DynamoDB.
+- Phase 1 - Terraform: Single-Site Infrastructure Module: Done, verified. Modular single-tenant site topology with private RDS, CloudFront CDN, and Secrets Manager.
+- Phase 2 - Ansible: WordPress Provisioning Playbook: Done, verified. Production-grade Nginx + PHP-FPM + WordPress setup over AWS Systems Manager (SSM) Session Manager.
+- Phase 3 - Deployment Orchestration API: Done, verified. API Gateway v2 + Lambda + CodeBuild serverless runner with remote S3 state isolation.
+- Phase 4 - Site Action Endpoints: Done, verified. Lifecycle actions implemented for reboot, live Nginx logs, and simultaneous EBS/RDS automated snapshots.
+- Phase 5 - Continuous Monitoring: Done, verified. EventBridge scheduled Lambda executing WP-CLI introspection via SSM Run Command, CloudWatch 5xx alarm tracking, and DynamoDB health metrics.
+- Phase 6 - Control Center Frontend: Done, verified. Next.js 16 dashboard with a bespoke brutalist dark mode (inspired by bennyduah.com and anchor.bennyduah.com), API Gateway CORS support, and DynamoDB Decimal serialization handling.
+- Phase 7 - Multi-Site Proof and Final Documentation Pass: Done, verified. Demonstrated multi-site concurrent operation and fault isolation across independent VPCs (site-kaluna, site-bennyduah, test-site-api-12). Compiled complete, unified architecture and decisions document in `/docs/architecture-and-decisions.md`.
 
 ## In progress
-- Phase 6 - Control Center Frontend: Ready to start building the frontend dashboard.
+- None. All phases complete.
 
 ## Not started
-- Phase 6 - Control Center Frontend
-- Phase 7 - Multi-Site Proof and Final Documentation Pass
+- None. All phases complete.
 
-## Decisions made this session (if any deviated from or extended Section 1)
-- Added `cloudwatch:ListTagsForResource`, `cloudwatch:TagResource`, and `cloudwatch:UntagResource` to the CodeBuild orchestration IAM policy so Terraform can manage the tags of the CloudFront 5xx alarms.
-- Enforced a hard cleanup of old `test-site-api-9`, `10`, and `11` VPCs, ENIs, ALBs, DB Subnet Groups, and RDS instances because CodeBuild could not destroy them due to `VpcLimitExceeded` blocking Terraform initialization/run.
-- Used an empty `backend {}` config injection in CodeBuild via `backend.tf` to inject S3 configuration dynamically without polluting the local `main.tf` file.
+## Decisions made this project
+- Used AWS Systems Manager (SSM) connection plugin for Ansible to eliminate permanent private keys and public SSH access.
+- Selected AWS CodeBuild as a cost-effective, on-demand serverless IaC execution engine instead of maintaining persistent orchestration compute.
+- Adopted strict per-site S3 state partitioning (`$SITE_ID/terraform.tfstate`) to isolate blast radiuses.
+- Implemented a custom `DecimalEncoder` in the Python Lambda layer to safely serialize DynamoDB numeric attributes.
+- Configured native API Gateway v2 CORS handling to support secure client-side browser communication from the Control Center frontend.
+- Designed a brutalist, zero-slop dark aesthetic for the Control Center to maintain visual consistency with bennyduah.com and anchor.bennyduah.com.
 
 ## Known issues / blockers
-- The WSL network on the host environment occasionally suffers from DNS drops or packet loss.
+- None.
 
-## Next action for the next agent
-Read Phase 6 in MASTER_PROMPT.md. Build the Control Center Frontend.
+## Next steps
+- The platform is ready for production usage.
