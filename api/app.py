@@ -231,6 +231,52 @@ def backup_site(event, site_id):
         
     return {'statusCode': 202, 'body': dumps(res)}
 
+def update_site(event, site_id):
+    inst_id = get_instance_id(site_id)
+    if not inst_id:
+        return {'statusCode': 404, 'body': dumps({'error': 'Instance not found'})}
+    
+    response = table.get_item(Key={'site_id': site_id})
+    item = response.get('Item', {})
+    domain = item.get('domain', '')
+    if not domain:
+        return {'statusCode': 400, 'body': dumps({'error': 'Domain not found for site'})}
+        
+    # 1. Automated safety snapshot before updating
+    try:
+        backup_site(event, site_id)
+    except Exception as be:
+        print(f"Pre-update backup warning: {be}")
+        
+    # 2. Execute WP-CLI core and plugin updates
+    try:
+        commands = [
+            f"sudo -u www-data wp core update --path=/var/www/{domain}",
+            f"sudo -u www-data wp plugin update --all --path=/var/www/{domain}",
+            f"sudo -u www-data wp core update-db --path=/var/www/{domain}"
+        ]
+        cmd = ssm.send_command(
+            InstanceIds=[inst_id],
+            DocumentName='AWS-RunShellScript',
+            Parameters={'commands': commands}
+        )
+        command_id = cmd['Command']['CommandId']
+        time.sleep(3)
+        result = ssm.get_command_invocation(CommandId=command_id, InstanceId=inst_id)
+        retries = 15
+        while result['Status'] in ['Pending', 'InProgress'] and retries > 0:
+            time.sleep(2)
+            result = ssm.get_command_invocation(CommandId=command_id, InstanceId=inst_id)
+            retries -= 1
+            
+        return {'statusCode': 200, 'body': dumps({
+            'message': 'WordPress update routine completed successfully',
+            'status': result['Status'],
+            'output': result.get('StandardOutputContent', '')
+        })}
+    except ClientError as e:
+        return {'statusCode': 500, 'body': dumps({'error': str(e)})}
+
 def handler(event, context):
     try:
         print("Received event:", dumps(event))
@@ -260,6 +306,8 @@ def handler(event, context):
             return get_site_logs(event, site_id)
         elif route_key == 'POST /sites/{site_id}/backup':
             return backup_site(event, site_id)
+        elif route_key == 'POST /sites/{site_id}/update':
+            return update_site(event, site_id)
         else:
             return {'statusCode': 404, 'body': dumps({'error': f"Route {route_key} not found"})}
             

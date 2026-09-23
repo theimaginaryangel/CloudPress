@@ -18,9 +18,12 @@ server {
         deny all;
     }
 
-    # Optional: Basic cache configuration for static files
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        expires max;
+    # High-performance static asset caching for CloudFront & Browser
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp|avif)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform, max-age=2592000";
+        add_header Access-Control-Allow-Origin "*";
         log_not_found off;
+        access_log off;
     }
 }

@@ -59,6 +59,10 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "ec2:DescribeInstances",
           "ec2:RebootInstances",
           "ec2:CreateImage",
+          "ec2:DescribeImages",
+          "ec2:DeregisterImage",
+          "ec2:DescribeSnapshots",
+          "ec2:DeleteSnapshot",
           "elasticloadbalancing:DescribeLoadBalancers"
         ]
         Resource = "*"
@@ -66,11 +70,13 @@ resource "aws_iam_role_policy" "lambda_policy" {
       {
         Effect = "Allow"
         Action = [
-          "rds:CreateDBSnapshot"
+          "rds:CreateDBSnapshot",
+          "rds:DescribeDBSnapshots",
+          "rds:DeleteDBSnapshot"
         ]
         Resource = [
           "arn:aws:rds:us-east-1:*:db:cloudpress-*",
-          "arn:aws:rds:us-east-1:*:snapshot:cloudpress-db-backup-*"
+          "arn:aws:rds:us-east-1:*:snapshot:cloudpress-*"
         ]
       },
       {

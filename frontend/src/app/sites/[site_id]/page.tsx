@@ -2,16 +2,17 @@
 
 import { use, useState } from 'react';
 import useSWR from 'swr';
-import { getSite, rebootSite, backupSite } from '@/lib/api';
+import { getSite, rebootSite, backupSite, updateSite } from '@/lib/api';
 import Link from 'next/link';
 
 export default function SiteDetail({ params }: { params: Promise<{ site_id: string }> }) {
   const unwrappedParams = use(params);
   const siteId = unwrappedParams.site_id;
-  const { data: site, error } = useSWR(`/sites/${siteId}`, () => getSite(siteId), { refreshInterval: 10000 });
+  const { data: site, error, mutate } = useSWR(`/sites/${siteId}`, () => getSite(siteId), { refreshInterval: 10000 });
   
   const [isRebooting, setIsRebooting] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   if (error) return (
     <div className="min-h-screen p-8 md:p-16 lg:p-24 flex items-center justify-center font-mono text-xs tracking-widest uppercase text-red-500">
@@ -52,6 +53,20 @@ export default function SiteDetail({ params }: { params: Promise<{ site_id: stri
     }
   };
 
+  const handleUpdate = async () => {
+    if (!confirm('INITIATE AUTOMATED MAINTENANCE ROUTINE? (Pre-update snapshot will be created automatically) [Y/N]')) return;
+    setIsUpdating(true);
+    try {
+      const res = await updateSite(siteId);
+      alert('UPDATE_ROUTINE_COMPLETE:\n' + (res.message || 'Updated successfully'));
+      mutate();
+    } catch (err: any) {
+      alert('UPDATE_FAILED: ' + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen p-8 md:p-16 lg:p-24 flex flex-col font-light">
       <header className="mb-16 flex flex-col md:flex-row md:justify-between md:items-end border-b border-zinc-800 pb-6 gap-6">
@@ -79,7 +94,14 @@ export default function SiteDetail({ params }: { params: Promise<{ site_id: stri
           </div>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
+          <button 
+            onClick={handleUpdate}
+            disabled={isUpdating || site.status !== 'AVAILABLE'}
+            className="text-[10px] font-mono tracking-widest uppercase border border-emerald-900 bg-emerald-950/30 text-emerald-400 px-4 py-2 hover:bg-emerald-900 hover:text-white transition-colors disabled:opacity-30"
+          >
+            {isUpdating ? 'Updating...' : 'Apply_Updates'}
+          </button>
           <button 
             onClick={handleBackup}
             disabled={isBackingUp || site.status !== 'AVAILABLE'}

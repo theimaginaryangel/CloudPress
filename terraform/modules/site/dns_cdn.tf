@@ -35,7 +35,85 @@ resource "aws_cloudfront_distribution" "cdn" {
     max_ttl                = 86400
   }
 
-  # Add caching behavior overrides for wp-admin if necessary later, but keeping basic for now.
+  # 1. Bypass cache completely for WordPress Admin and Login
+  ordered_cache_behavior {
+    path_pattern     = "wp-login.php"
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "alb-${var.site_id}"
+
+    forwarded_values {
+      query_string = true
+      cookies {
+        forward = "all"
+      }
+    }
+
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/wp-admin/*"
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "alb-${var.site_id}"
+
+    forwarded_values {
+      query_string = true
+      cookies {
+        forward = "all"
+      }
+    }
+
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  # 2. Aggressive edge caching for static uploads and assets
+  ordered_cache_behavior {
+    path_pattern     = "/wp-content/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "alb-${var.site_id}"
+    compress         = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl                = 86400
+    default_ttl            = 604800
+    max_ttl                = 2592000
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/wp-includes/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "alb-${var.site_id}"
+    compress         = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl                = 86400
+    default_ttl            = 604800
+    max_ttl                = 2592000
+    viewer_protocol_policy = "redirect-to-https"
+  }
 
   restrictions {
     geo_restriction {

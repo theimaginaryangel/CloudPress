@@ -62,3 +62,9 @@ export async function backupSite(siteId: string) {
   if (!res.ok) throw new Error('Failed to backup site');
   return res.json();
 }
+
+export async function updateSite(siteId: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}/update`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to run updates');
+  return res.json();
+}

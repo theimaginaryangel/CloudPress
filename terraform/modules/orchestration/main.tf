@@ -89,7 +89,8 @@ resource "aws_apigatewayv2_route" "routes" {
     "DELETE /sites/{site_id}",
     "POST /sites/{site_id}/reboot",
     "GET /sites/{site_id}/logs",
-    "POST /sites/{site_id}/backup"
+    "POST /sites/{site_id}/backup",
+    "POST /sites/{site_id}/update"
   ])
 
   api_id    = aws_apigatewayv2_api.api.id
