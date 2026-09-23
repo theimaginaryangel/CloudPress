@@ -102,11 +102,19 @@ export default function Dashboard() {
               
               <div className="space-y-4 mb-12">
                 <div className="flex flex-col">
+                  <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-600 mb-1">Live Endpoint (ALB)</span>
+                  {site.public_url ? (
+                    <a href={site.public_url} target="_blank" rel="noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 font-mono transition-colors truncate">
+                      {site.alb_dns_name}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-zinc-600 font-mono">Provisioning...</span>
+                  )}
+                </div>
+                <div className="flex flex-col">
                   <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-600 mb-1">Domain</span>
                   {site.domain ? (
-                    <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-sm text-zinc-400 hover:text-pink-400 transition-colors truncate">
-                      {site.domain}
-                    </a>
+                    <span className="text-sm text-zinc-300 font-mono truncate">{site.domain}</span>
                   ) : (
                     <span className="text-sm text-zinc-600 font-mono">None</span>
                   )}

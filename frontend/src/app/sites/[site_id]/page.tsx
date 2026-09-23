@@ -60,17 +60,22 @@ export default function SiteDetail({ params }: { params: Promise<{ site_id: stri
             &larr; Return_to_base
           </Link>
           <h1 className="text-xl tracking-widest uppercase font-mono text-zinc-100">{site.site_id}</h1>
-          <div className="flex items-center gap-4 mt-2">
-            {site.domain ? (
-              <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-xs tracking-widest font-mono text-zinc-500 hover:text-pink-400 transition-colors">
-                {site.domain}
-              </a>
-            ) : (
-              <span className="text-xs tracking-widest font-mono text-zinc-600">None</span>
+          <div className="flex flex-col gap-1 mt-3">
+            {site.public_url && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-600">Live Endpoint:</span>
+                <a href={site.public_url} target="_blank" rel="noreferrer" className="text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-colors">
+                  {site.alb_dns_name} &rarr;
+                </a>
+              </div>
             )}
-            <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-600">
-              [{site.status}]
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-600">Domain:</span>
+              <span className="text-xs font-mono text-zinc-400">{site.domain || 'None'}</span>
+              <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-500">
+                [{site.status}]
+              </span>
+            </div>
           </div>
         </div>
         

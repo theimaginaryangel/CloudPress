@@ -1,4 +1,4 @@
-﻿const API_URL = 'https://yd1h3zhgqf.execute-api.us-east-1.amazonaws.com';
+const API_URL = 'https://yd1h3zhgqf.execute-api.us-east-1.amazonaws.com';
 
 export interface HealthMetrics {
   disk_usage?: string;
@@ -14,7 +14,9 @@ export interface Site {
   domain: string;
   instance_size: string;
   status: 'PROVISIONING' | 'AVAILABLE' | 'FAILED' | 'DESTROYING';
-  created_at?: number;
+  created_at?: number | string;
+  alb_dns_name?: string;
+  public_url?: string;
   health_metrics?: HealthMetrics;
 }
 

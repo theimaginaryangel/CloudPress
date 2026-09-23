@@ -58,7 +58,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Action = [
           "ec2:DescribeInstances",
           "ec2:RebootInstances",
-          "ec2:CreateImage"
+          "ec2:CreateImage",
+          "elasticloadbalancing:DescribeLoadBalancers"
         ]
         Resource = "*"
       },

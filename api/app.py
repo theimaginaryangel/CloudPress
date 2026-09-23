@@ -22,11 +22,26 @@ codebuild = boto3.client('codebuild')
 ec2 = boto3.client('ec2')
 rds = boto3.client('rds')
 ssm = boto3.client('ssm')
+elbv2 = boto3.client('elbv2')
 
 TABLE_NAME = os.environ.get('TABLE_NAME', 'cloudpress-sites')
 PROJECT_NAME = os.environ.get('PROJECT_NAME', 'cloudpress-orchestrator')
 
 table = dynamodb.Table(TABLE_NAME)
+
+def get_alb_map():
+    try:
+        lbs = elbv2.describe_load_balancers().get('LoadBalancers', [])
+        alb_map = {}
+        for lb in lbs:
+            name = lb.get('LoadBalancerName', '')
+            if name.startswith('cloudpress-alb-'):
+                sid = name.replace('cloudpress-alb-', '')
+                alb_map[sid] = lb.get('DNSName', '')
+        return alb_map
+    except Exception as e:
+        print(f"Error fetching ALBs: {e}")
+        return {}
 
 def get_instance_id(site_id):
     res = ec2.describe_instances(Filters=[
@@ -40,12 +55,24 @@ def get_instance_id(site_id):
 
 def get_sites(event):
     response = table.scan()
-    return {'statusCode': 200, 'body': dumps(response.get('Items', []))}
+    items = response.get('Items', [])
+    alb_map = get_alb_map()
+    for item in items:
+        sid = item.get('site_id')
+        if sid in alb_map:
+            item['alb_dns_name'] = alb_map[sid]
+            item['public_url'] = f"http://{alb_map[sid]}"
+    return {'statusCode': 200, 'body': dumps(items)}
 
 def get_site(event, site_id):
     response = table.get_item(Key={'site_id': site_id})
     if 'Item' in response:
-        return {'statusCode': 200, 'body': dumps(response['Item'])}
+        item = response['Item']
+        alb_map = get_alb_map()
+        if site_id in alb_map:
+            item['alb_dns_name'] = alb_map[site_id]
+            item['public_url'] = f"http://{alb_map[site_id]}"
+        return {'statusCode': 200, 'body': dumps(item)}
     return {'statusCode': 404, 'body': dumps({'error': 'Site not found'})}
 
 def create_site(event):
