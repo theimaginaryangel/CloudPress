@@ -56,9 +56,10 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      TABLE_NAME   = aws_dynamodb_table.sites.name
-      PROJECT_NAME = aws_codebuild_project.orchestrator.name
-      STATE_BUCKET = aws_s3_bucket.terraform_state.bucket
+      TABLE_NAME    = aws_dynamodb_table.sites.name
+      PROJECT_NAME  = aws_codebuild_project.orchestrator.name
+      STATE_BUCKET  = aws_s3_bucket.terraform_state.bucket
+      ADMIN_API_KEY = "cloudpress-admin-2026"
     }
   }
 }

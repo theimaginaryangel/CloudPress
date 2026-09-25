@@ -26,8 +26,21 @@ elbv2 = boto3.client('elbv2')
 
 TABLE_NAME = os.environ.get('TABLE_NAME', 'cloudpress-sites')
 PROJECT_NAME = os.environ.get('PROJECT_NAME', 'cloudpress-orchestrator')
+ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', 'cloudpress-admin-2026')
 
 table = dynamodb.Table(TABLE_NAME)
+
+def check_auth(event):
+    headers = event.get('headers') or {}
+    key = None
+    for h, v in headers.items():
+        if h.lower() in ['x-api-key', 'authorization']:
+            if v.startswith('Bearer '):
+                key = v[7:].strip()
+            else:
+                key = v.strip()
+            break
+    return key == ADMIN_API_KEY
 
 def get_alb_map():
     try:
@@ -292,6 +305,20 @@ def handler(event, context):
         path_params = event.get('pathParameters') or {}
         site_id = path_params.get('site_id')
         
+        mutating_routes = [
+            'POST /sites',
+            'DELETE /sites/{site_id}',
+            'POST /sites/{site_id}/reboot',
+            'POST /sites/{site_id}/backup',
+            'POST /sites/{site_id}/update'
+        ]
+        if route_key in mutating_routes:
+            if not check_auth(event):
+                return {
+                    'statusCode': 401,
+                    'body': dumps({'error': 'Unauthorized: Valid Admin Passkey required to deploy or modify infrastructure.'})
+                }
+
         if route_key == 'GET /sites':
             return get_sites(event)
         elif route_key == 'GET /sites/{site_id}':

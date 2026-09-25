@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { getSites, createSite, deleteSite } from '@/lib/api';
+import { getSites, createSite, deleteSite, getAdminKey, setAdminKey } from '@/lib/api';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -11,15 +11,21 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSiteId, setNewSiteId] = useState('');
   const [newDomain, setNewDomain] = useState('');
+  const [adminPasskey, setAdminPasskey] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  useEffect(() => {
+    setAdminPasskey(getAdminKey());
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
     setCreateError('');
     try {
-      await createSite(newSiteId, newDomain);
+      setAdminKey(adminPasskey);
+      await createSite(newSiteId, newDomain, 't3.micro', adminPasskey);
       setIsModalOpen(false);
       setNewSiteId('');
       setNewDomain('');
@@ -33,11 +39,27 @@ export default function Dashboard() {
 
   const handleDelete = async (siteId: string) => {
     if (!confirm(`Are you sure you want to delete ${siteId}?`)) return;
+    let key = adminPasskey || getAdminKey();
+    if (!key) {
+      const entered = prompt('ENTER ADMIN PASSKEY TO AUTHORIZE DELETION:');
+      if (!entered) return;
+      key = entered;
+      setAdminPasskey(key);
+      setAdminKey(key);
+    }
     try {
-      await deleteSite(siteId);
+      await deleteSite(siteId, key);
       mutate();
-    } catch (err) {
-      alert('Failed to delete site');
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    }
+  };
+
+  const handleToggleAuth = () => {
+    const nextKey = prompt('Update Admin Passkey (leave blank to lock/clear):', adminPasskey);
+    if (nextKey !== null) {
+      setAdminPasskey(nextKey.trim());
+      setAdminKey(nextKey.trim());
     }
   };
 
@@ -58,12 +80,21 @@ export default function Dashboard() {
           <h1 className="text-xl tracking-widest uppercase font-mono text-zinc-100">CloudPress</h1>
           <p className="text-xs tracking-widest uppercase font-mono text-zinc-600 mt-2">Control Center</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="text-xs font-mono tracking-widest uppercase border border-zinc-800 px-4 py-2 hover:bg-zinc-800 hover:text-white transition-colors rounded-sm"
-        >
-          [+ Deploy Site]
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleToggleAuth}
+            title="Click to set or clear Admin Passkey"
+            className="text-[10px] font-mono tracking-widest uppercase border border-zinc-800 px-3 py-2 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-colors"
+          >
+            {adminPasskey ? '[AUTH: ADMIN]' : '[AUTH: LOCKED]'}
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="text-xs font-mono tracking-widest uppercase border border-zinc-800 px-4 py-2 hover:bg-zinc-800 hover:text-white transition-colors rounded-sm"
+          >
+            [+ Deploy Site]
+          </button>
+        </div>
       </header>
 
       <main className="flex-1">
@@ -178,6 +209,20 @@ export default function Dashboard() {
                     placeholder="example.com"
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] font-mono tracking-widest uppercase text-zinc-500">Admin_Passkey</label>
+                    <span className="text-[9px] font-mono text-zinc-600">Required for AWS deployment</span>
+                  </div>
+                  <input 
+                    type="password" 
+                    required 
+                    className="w-full bg-transparent border-b border-zinc-800 px-0 py-2 text-zinc-200 text-sm font-mono focus:outline-none focus:border-zinc-500 transition-colors" 
+                    placeholder="••••••••••••"
+                    value={adminPasskey}
+                    onChange={(e) => setAdminPasskey(e.target.value)}
                   />
                 </div>
               </div>

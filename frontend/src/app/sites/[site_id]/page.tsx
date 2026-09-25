@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import useSWR from 'swr';
-import { getSite, rebootSite, backupSite, updateSite } from '@/lib/api';
+import { getSite, rebootSite, backupSite, updateSite, getAdminKey, setAdminKey } from '@/lib/api';
 import Link from 'next/link';
 
 export default function SiteDetail({ params }: { params: Promise<{ site_id: string }> }) {
@@ -28,26 +28,41 @@ export default function SiteDetail({ params }: { params: Promise<{ site_id: stri
 
   const metrics = site.health_metrics;
 
+  const ensureAdminKey = (): string | null => {
+    let key = getAdminKey();
+    if (!key) {
+      const entered = prompt('ENTER ADMIN PASSKEY TO AUTHORIZE ACTION:');
+      if (!entered) return null;
+      key = entered.trim();
+      setAdminKey(key);
+    }
+    return key;
+  };
+
   const handleReboot = async () => {
     if (!confirm('INITIATE REBOOT SEQUENCE? [Y/N]')) return;
+    const key = ensureAdminKey();
+    if (!key) return;
     setIsRebooting(true);
     try {
-      await rebootSite(siteId);
+      await rebootSite(siteId, key);
       alert('REBOOT_SEQ_ACKNOWLEDGED');
-    } catch (err) {
-      alert('REBOOT_SEQ_FAILED');
+    } catch (err: any) {
+      alert('REBOOT_SEQ_FAILED: ' + err.message);
     } finally {
       setIsRebooting(false);
     }
   };
 
   const handleBackup = async () => {
+    const key = ensureAdminKey();
+    if (!key) return;
     setIsBackingUp(true);
     try {
-      await backupSite(siteId);
+      await backupSite(siteId, key);
       alert('BACKUP_COMPLETE');
-    } catch (err) {
-      alert('BACKUP_FAILED');
+    } catch (err: any) {
+      alert('BACKUP_FAILED: ' + err.message);
     } finally {
       setIsBackingUp(false);
     }
@@ -55,9 +70,11 @@ export default function SiteDetail({ params }: { params: Promise<{ site_id: stri
 
   const handleUpdate = async () => {
     if (!confirm('INITIATE AUTOMATED MAINTENANCE ROUTINE? (Pre-update snapshot will be created automatically) [Y/N]')) return;
+    const key = ensureAdminKey();
+    if (!key) return;
     setIsUpdating(true);
     try {
-      const res = await updateSite(siteId);
+      const res = await updateSite(siteId, key);
       alert('UPDATE_ROUTINE_COMPLETE:\n' + (res.message || 'Updated successfully'));
       mutate();
     } catch (err: any) {

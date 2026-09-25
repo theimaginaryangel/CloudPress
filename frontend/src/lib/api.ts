@@ -20,6 +20,40 @@ export interface Site {
   health_metrics?: HealthMetrics;
 }
 
+export function getAdminKey(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('cloudpress_admin_key') || '';
+  }
+  return '';
+}
+
+export function setAdminKey(key: string): void {
+  if (typeof window !== 'undefined') {
+    if (key.trim()) {
+      localStorage.setItem('cloudpress_admin_key', key.trim());
+    } else {
+      localStorage.removeItem('cloudpress_admin_key');
+    }
+  }
+}
+
+export function clearAdminKey(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('cloudpress_admin_key');
+  }
+}
+
+function getAuthHeaders(explicitKey?: string): Record<string, string> {
+  const key = explicitKey || getAdminKey();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (key) {
+    headers['x-api-key'] = key;
+  }
+  return headers;
+}
+
 export async function getSites(): Promise<Site[]> {
   const res = await fetch(`${API_URL}/sites`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch sites');
@@ -32,39 +66,63 @@ export async function getSite(siteId: string): Promise<Site> {
   return res.json();
 }
 
-export async function createSite(siteId: string, domain: string, instanceSize: string = 't3.micro') {
+export async function createSite(siteId: string, domain: string, instanceSize: string = 't3.micro', adminKey?: string) {
   const res = await fetch(`${API_URL}/sites`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(adminKey),
     body: JSON.stringify({ site_id: siteId, domain, instance_size: instanceSize }),
   });
   if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to create site');
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || (res.status === 401 ? 'Unauthorized: Valid Admin Passkey required.' : 'Failed to create site'));
   }
   return res.json();
 }
 
-export async function deleteSite(siteId: string) {
-  const res = await fetch(`${API_URL}/sites/${siteId}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete site');
+export async function deleteSite(siteId: string, adminKey?: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(adminKey),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || (res.status === 401 ? 'Unauthorized: Valid Admin Passkey required.' : 'Failed to delete site'));
+  }
   return res.json();
 }
 
-export async function rebootSite(siteId: string) {
-  const res = await fetch(`${API_URL}/sites/${siteId}/reboot`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to reboot site');
+export async function rebootSite(siteId: string, adminKey?: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}/reboot`, {
+    method: 'POST',
+    headers: getAuthHeaders(adminKey),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || (res.status === 401 ? 'Unauthorized: Valid Admin Passkey required.' : 'Failed to reboot site'));
+  }
   return res.json();
 }
 
-export async function backupSite(siteId: string) {
-  const res = await fetch(`${API_URL}/sites/${siteId}/backup`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to backup site');
+export async function backupSite(siteId: string, adminKey?: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}/backup`, {
+    method: 'POST',
+    headers: getAuthHeaders(adminKey),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || (res.status === 401 ? 'Unauthorized: Valid Admin Passkey required.' : 'Failed to backup site'));
+  }
   return res.json();
 }
 
-export async function updateSite(siteId: string) {
-  const res = await fetch(`${API_URL}/sites/${siteId}/update`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to run updates');
+export async function updateSite(siteId: string, adminKey?: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}/update`, {
+    method: 'POST',
+    headers: getAuthHeaders(adminKey),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || (res.status === 401 ? 'Unauthorized: Valid Admin Passkey required.' : 'Failed to run updates'));
+  }
   return res.json();
 }
